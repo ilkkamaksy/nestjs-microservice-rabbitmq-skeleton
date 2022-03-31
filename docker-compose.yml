@@ -1,0 +1,116 @@
+version: "3.7"
+
+services:
+  rabbitmq:
+    image: rabbitmq:3.8.27-management-alpine
+    container_name: "rabbitmq"
+    environment:
+      - RABBITMQ_DEFAULT_USER=${RABBITMQ_DEFAULT_USER}
+      - RABBITMQ_DEFAULT_PASS=${RABBITMQ_DEFAULT_PASS}
+    ports:
+      - 5672:5672
+      - 15672:15672
+    volumes:
+      - ~/.docker-conf/rabbitmq/data/:/var/lib/rabbitmq/
+      - ~/.docker-conf/rabbitmq/log/:/var/log/rabbitmq
+  dba:
+    container_name: dba
+    image: postgres:${POSTGRES_VERSION}
+    environment:
+      - POSTGRES_USER=${POSTGRES_USERNAME}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB_A}
+    ports:
+      - 5432:5432
+    volumes:
+      - /data/dba/
+  dbb:
+    container_name: dbb
+    image: postgres:${POSTGRES_VERSION}
+    environment:
+      - POSTGRES_USER=${POSTGRES_USERNAME}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB_B}
+    expose:
+      - "5433"
+    ports:
+      - 5433:5432
+    volumes:
+      - /data/dbb/
+    command: -p 5433
+  service-a:
+    container_name: service-a
+    image: service-a:latest
+    depends_on:
+      - dba
+      - rabbitmq
+    build:
+      context: ./service-a
+      target: development
+      dockerfile: Dockerfile
+    environment:
+      - POSTGRES_HOST=dba
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=${POSTGRES_USERNAME}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB_A}
+      - RABBITMQ_DEFAULT_USER=${RABBITMQ_DEFAULT_USER}
+      - RABBITMQ_DEFAULT_PASS=${RABBITMQ_DEFAULT_PASS}
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_PORT=5672
+      - RABBITMQ_QUEUE=items
+    ports:
+      - 3001:3001
+      - 9000:9229
+    volumes:
+      - ./service-a:/service-a
+      - /service-a/node_modules
+    restart: unless-stopped
+  service-b:
+    container_name: service-b
+    image: service-b:latest
+    depends_on:
+      - dbb
+      - rabbitmq
+    build:
+      context: ./service-b
+      target: development
+      dockerfile: Dockerfile
+    environment:
+      - POSTGRES_HOST=dbb
+      - POSTGRES_PORT=5433
+      - POSTGRES_USER=${POSTGRES_USERNAME}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB_B}
+      - RABBITMQ_DEFAULT_USER=${RABBITMQ_DEFAULT_USER}
+      - RABBITMQ_DEFAULT_PASS=${RABBITMQ_DEFAULT_PASS}
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_PORT=5672
+      - RABBITMQ_QUEUE=bars
+    ports:
+      - 3002:3002
+      - 9002:9229
+    volumes:
+      - ./service-b:/service-b
+      - /service-b/node_modules
+    restart: unless-stopped
+  gateway:
+    container_name: gateway
+    build:
+      context: ./gateway
+      target: development
+      dockerfile: Dockerfile
+    ports:
+      - 3000:3000
+      - 9001:9229
+    environment:
+      - RABBITMQ_DEFAULT_USER=${RABBITMQ_DEFAULT_USER}
+      - RABBITMQ_DEFAULT_PASS=${RABBITMQ_DEFAULT_PASS}
+      - RABBITMQ_QUEUE_SERVICE_A=items
+      - RABBITMQ_QUEUE_SERVICE_B=bars
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_PORT=5672
+    volumes:
+      - ./gateway:/gateway
+      - /gateway/node_modules
+    restart: unless-stopped

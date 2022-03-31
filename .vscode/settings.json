@@ -1,0 +1,3 @@
+{
+  "eslint.workingDirectories": ["service-a", "service-b", "gateway"]
+}

@@ -1,6 +1,6 @@
-# Microservices demo with nestJS and RabbitMQ message broker
+# Microservices skeleton with nestJS and RabbitMQ message broker
 
-This is a skeleton of a nestJS microservices architecture using RabbitMQ as message broker. The system consists of two resource services and a gateway.
+This is a skeleton of a nestJS microservices architecture using RabbitMQ as message broker. The system consists of two resource services and API gateway.
 
 ## Quick start
 
